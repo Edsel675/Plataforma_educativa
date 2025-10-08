@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: pizarra_postgres
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: pizarra_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d pizarra_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pizarra_network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: pizarra_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pizarra_network
+
+  # MongoDB
+  mongodb:
+    image: mongo:7
+    container_name: pizarra_mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: pizarra
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/pizarra --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pizarra_network
+
+  # Adminer (GUI para PostgreSQL) - Opcional
+  adminer:
+    image: adminer:latest
+    container_name: pizarra_adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      - postgres
+    networks:
+      - pizarra_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  mongodb_data:
+    driver: local
+
+networks:
+  pizarra_network:
+    driver: bridge

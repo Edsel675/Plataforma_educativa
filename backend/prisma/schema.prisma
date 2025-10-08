@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USERS ====================
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      Role     @default(STUDENT)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student Student?
+  parent  Parent?
+
+  @@map("users")
+}
+
+enum Role {
+  STUDENT
+  PARENT
+  TEACHER
+  ADMIN
+}
+
+// ==================== STUDENTS ====================
+model Student {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  firstName String
+  lastName  String
+  age       Int
+  grade     String
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile           StudentProfile?
+  sessions          Session[]
+  progress          Progress[]
+  achievements      Achievement[]
+
+  @@map("students")
+}
+
+// ==================== STUDENT PROFILE ====================
+model StudentProfile {
+  id                 String   @id @default(uuid())
+  studentId          String   @unique
+  personalityType    String?  // MBTI o Big Five
+  learningStyle      String[] // visual, auditory, kinesthetic
+  interests          String[] // temas de interés
+  preferredCharacter String?
+  preferredTheme     String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("student_profiles")
+}
+
+// ==================== PARENTS ====================
+model Parent {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  firstName String
+  lastName  String
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("parents")
+}
+
+// ==================== SESSIONS ====================
+model Session {
+  id          String       @id @default(uuid())
+  studentId   String
+  subject     String
+  topic       String
+  startTime   DateTime     @default(now())
+  endTime     DateTime?
+  duration    Int?         // en minutos
+  status      SessionStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  student     Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  activities  Activity[]
+
+  @@map("sessions")
+}
+
+enum SessionStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+  CANCELLED
+}
+
+// ==================== ACTIVITIES ====================
+model Activity {
+  id             String   @id @default(uuid())
+  sessionId      String
+  type           String   // exercise, explanation, break, etc
+  content        Json
+  startTime      DateTime @default(now())
+  endTime        DateTime?
+  timeSpent      Int?     // en segundos
+  wasCorrect     Boolean?
+  attemptsCount  Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("activities")
+}
+
+// ==================== PROGRESS ====================
+model Progress {
+  id                String   @id @default(uuid())
+  studentId         String
+  subject           String
+  topic             String
+  conceptsMastered  String[]
+  conceptsInProgress String[]
+  overallScore      Float    @default(0)
+  lastPracticed     DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, subject, topic])
+  @@map("progress")
+}
+
+// ==================== ACHIEVEMENTS ====================
+model Achievement {
+  id          String   @id @default(uuid())
+  studentId   String
+  type        String   // badge, milestone, streak
+  name        String
+  description String
+  iconUrl     String?
+  earnedAt    DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("achievements")
+}
+
+// ==================== CURRICULUM ====================
+model Subject {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  grade       String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  topics Topic[]
+
+  @@map("subjects")
+}
+
+model Topic {
+  id          String   @id @default(uuid())
+  subjectId   String
+  name        String
+  description String?
+  orderIndex  Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subject  Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  concepts Concept[]
+
+  @@map("topics")
+}
+
+model Concept {
+  id            String   @id @default(uuid())
+  topicId       String
+  name          String
+  description   String?
+  difficulty    Int      @default(1) // 1-5
+  prerequisites String[] // IDs de conceptos prerequisitos
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@map("concepts")
+}
